@@ -32,16 +32,31 @@ class FirebaseUIFirestoreExample extends StatelessWidget {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text('Contacts')),
-        body: FirestoreListView<User>(
+        body: FirestoreQueryBuilder<User>(
           query: collection,
-          padding: const EdgeInsets.all(8.0),
-          itemBuilder: (context, snapshot) {
-            final user = snapshot.data();
-            return Column(
-              children: [
-                UserTile(user: user),
-                const Divider(),
-              ],
+          pageSize: 2,
+          builder: (context, snapshot, _) {
+            debugPrint(
+              'isFetching ${snapshot.isFetching} '
+              'isFetchingMore ${snapshot.isFetchingMore} '
+              'hasMore ${snapshot.hasMore}',
+            );
+            final showLoading = snapshot.isFetchingMore || snapshot.hasMore;
+            return ListView.separated(
+              padding: const EdgeInsets.all(8),
+              separatorBuilder: (context, i) => const Divider(),
+              itemCount: snapshot.docs.length + (showLoading ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (snapshot.hasMore && index + 1 == snapshot.docs.length) {
+                  snapshot.fetchMore();
+                }
+
+                final user = snapshot.docs.elementAtOrNull(index)?.data();
+                if (user == null) {
+                  debugPrint('Showing loading indicator');
+                }
+                return UserTile(user: user);
+              },
             );
           },
         ),
@@ -51,7 +66,7 @@ class FirebaseUIFirestoreExample extends StatelessWidget {
 }
 
 class UserTile extends StatelessWidget {
-  final User user;
+  final User? user;
   const UserTile({
     super.key,
     required this.user,
@@ -62,7 +77,7 @@ class UserTile extends StatelessWidget {
     return Row(
       children: [
         CircleAvatar(
-          child: Text(user.firstName[0]),
+          child: user == null ? null : Text(user!.firstName[0]),
         ),
         const SizedBox(width: 8),
         Column(
@@ -71,11 +86,13 @@ class UserTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${user.firstName} ${user.lastName}',
+              user == null
+                  ? 'Loading...'
+                  : '${user!.firstName} ${user!.lastName}',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             Text(
-              user.number,
+              user == null ? '' : user!.number,
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
